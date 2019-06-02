@@ -1,6 +1,5 @@
 import flask
-from flask import Flask
-from flask import request
+from flask import request, jsonify, Flask
 from sqlalchemy import asc, desc
 app = Flask(__name__, template_folder="templates", static_url_path="")
 
@@ -145,6 +144,29 @@ def term(category=None, term=None):
         pass
     if request.method == 'DELETE':
         return "Category page";
+
+@app.route("/catalog.json", methods=['GET'])
+def api_full_catalog():
+    """ Returns the full catalog.
+    
+    This may become heavy on the database if the application is heavily used.
+    In such case, the results should be paginated.
+    """
+    categories = session.query(models.Category).all()
+    return jsonify([c.serialize() for c in categories])
+
+@app.route("/catalog/category/<category>.json", methods=['GET'])
+def api_category(category=None):
+    """ Returns the JSON data for a specific category given by a category id.
+    
+    This may become heavy on the database if a single category has a lot of items.
+    In such case, the results should be paginated.
+    """
+    if not category:
+        return jsonify("")
+    category = session.query(models.Category).get(category)
+    return jsonify(category.serialize())
+
 
 if __name__ == '__main__':
 	app.debug = True

@@ -37,6 +37,16 @@ class Category(Base):
         self.title = 'Visit '+self.name+' page'
         self.htmlclass = 'category'
 
+    def serialize(self):
+        self.load_items()
+        return {
+                'type': 'category',
+                'id': self.id,
+                'name': self.name,
+                'description': self.description,
+                'items' : [i.serialize() for i in self.items]
+                }
+
 
 class Item(Base):
     __tablename__ = 'items'
@@ -51,6 +61,15 @@ class Item(Base):
         self.text = self.name
         self.title = 'Visit '+self.name+' page'
         self.htmlclass = 'item'
+
+    def serialize(self):
+        return {
+                'type': 'item',
+                'id': self.id,
+                'name': self.name,
+                'description': self.description,
+                'category_id': self.category_id
+                }
 
 
 Base.metadata.create_all(engine)
