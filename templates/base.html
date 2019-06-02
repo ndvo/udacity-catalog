@@ -4,14 +4,21 @@
     <title>{{page.title}}</title>
     <meta name="description" content="{{page.description}}">
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="/style.css" type="text/css">
   </head>
   <body>
     <header>
-      <h1>{{page.content.title}}</h1>
+      <div id="logo">
+        <img src="logo.png" alt="Application logo, showing organized things">
+        <h1>Categorize and organize</h1>
+      </div>
       <nav>
         <a href="/">Home</a>
         <a href="/categories">Categories</a>
         <a href="/categories/add">New category</a>
+        {% if (page.content.model == 'category' and page.content.id) %}
+        <a href="/categories/{{page.content.id}}/term/add">Ad a new item to this category</a>
+        {% endif %}
       </nav>
       <section class="login">
         <form>
@@ -22,6 +29,7 @@
       </section>
     </header>
     <main>
+      <h1>{{page.content.title}}</h1>
       {{page.content.main | safe}}
     </main>
     <aside>

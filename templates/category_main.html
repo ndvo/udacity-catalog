@@ -1,0 +1,9 @@
+<p>{{category.description}}</p>
+
+<section class="items">
+  <ul>
+  {% for item in category.items_links %}
+    <li>{{ item | safe }}</li>
+  {% endfor %}
+  </ul>
+</section>

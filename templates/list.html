@@ -1,6 +1,6 @@
 <ul>
   {% for item in List %}
-  <li>{{ item }}</li>
+  <li>{{ item | safe}}</li>
   {% endfor %}
 </ul>
 

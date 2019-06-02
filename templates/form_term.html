@@ -1,0 +1,7 @@
+<form method="POST" enctype="multipart/formdata">
+  <label for="name">Name</label>
+  <input type="text" name="name" placeholder="Choose a name for your item" />
+  <input type="hidden" name="category_id" value={{category.id}}>
+  <textarea name="description"></textarea>
+  <button type="submit">Submit</button>
+</form>
