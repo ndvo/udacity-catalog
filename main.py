@@ -15,7 +15,7 @@ class Page():
     
 
 @app.route("/")
-def hello():
+def homepage():
     categories = session.query(models.Category).all()
     page = Page()
     page.title = "Welcome"
