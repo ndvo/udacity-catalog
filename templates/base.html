@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>{{page.title}}</title>
+    <meta name="description" content="{{page.description}}">
+    <meta charset="UTF-8">
+  </head>
+  <body>
+    <header>
+      <h1>{{page.content.title}}</h1>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/categories">Categories</a>
+        <a href="/categories/add">New category</a>
+      </nav>
+      <section class="login">
+        <form>
+          <input type="text" placeholder="Username or email">
+          <input type="password" placeholder="Password">
+          <button type="submit">Login</button>
+        </form>
+      </section>
+    </header>
+    <main>
+      {{page.content.main | safe}}
+    </main>
+    <aside>
+      {{page.content.aside | safe}}
+    </aside>
+  </body>
+</html>
