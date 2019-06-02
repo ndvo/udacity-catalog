@@ -1,0 +1,6 @@
+<dl {% if htmlclass %} class="{{htmlclass}}" {% endif %} >
+{% for definition in definitions %}
+<dt>{% if definition.link %} {{definition.link|safe}} {% else %} definition.name {% endif %}</dt>
+<dd>{{definition.description}}</dd>
+{% endfor %}
+</dl>

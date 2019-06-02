@@ -29,11 +29,13 @@
       </section>
     </header>
     <main>
+      {% if aside %}
+      <aside>
+        {{page.content.aside | safe}}
+      </aside>
+      {% endif %}
       <h1>{{page.content.title}}</h1>
       {{page.content.main | safe}}
     </main>
-    <aside>
-      {{page.content.aside | safe}}
-    </aside>
   </body>
 </html>
