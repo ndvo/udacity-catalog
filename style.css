@@ -1,4 +1,52 @@
-
+:root{
+  --widthMain: 300px;
+  --colorWhite: #fff;
+  --colorLight: #45A29E;
+  --colorLighter:#66FCF1;
+  --colorDark: #1F2833;
+  --colorDarker: #0B0C10;
+  --colorAction: #C5C6C7;
+  --paddingRegionMain: 2em;
+}
+@media screen and (min-width: 700px){
+  :root{
+    --widthMain: 650px;
+  }
+}
+@media screen and (min-width: 125px){
+  :root{
+    --widthMain: 1250px;
+  }
+}
+header, aside{
+  background: var(--colorLight);
+}
+header, main{
+  margin: 0 auto;
+  max-width: var(--widthMain);
+  padding: var(--paddingRegionMain);
+}
+main{
+  background: var(--colorLighter);
+}
+aside {
+  max-width: calc( var(--widthMain) / 3 );
+  float: left;
+  margin: 0 1em 0 -1em;
+  border: solid thin var(--colorLighter);
+  padding: var(--paddingRegionMain);
+}
+aside a {
+  color: var(--colorDarker);
+}
 nav{
+  background: var(--colorDark);
   padding: 1em;
+  margin: 1em 0;
+}
+nav a{
+  color: var(--colorAction);
+  font-family: Sans-Serif;
+  font-weight: bold;
+  margin-right: 0.5em;
 }
