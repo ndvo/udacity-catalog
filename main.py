@@ -58,6 +58,8 @@ def load_session_state():
 CLIENT_ID = json.loads(open('client_secret_1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com.json', 'r').read())
 @app.route('/gconnect', methods=['POST'])
 def gconnect():
+    if 'state' not in login_session.keys():
+        load_session_state()
     if request.args.get('state') != login_session['state']:
         print request.args.get('state'), login_session['state']
         print request.args
@@ -65,11 +67,12 @@ def gconnect():
         response.headers['Content-Type'] = 'application/json'
         return response
     code = request.data
+    print request.data, code
     try: 
-        print code
-        oauth_flow = flow_from_clientsecrets('client_secret_1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com.json', access='offline', scope ='')
+        oauth_flow = flow_from_clientsecrets('client_secret_1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com.json',  scope ='')
         oauth_flow.redirect_uri = 'postmessage'
         credentials = oauth_flow.step2_exchange(code)
+        print "oi"
     except FlowExchangeError as e :
         response = make_response(json.dumps('Failed to upgrade authorization code.'), 401)
         response.headers['Content-Type'] = 'application/json'
@@ -105,6 +108,14 @@ def gconnect():
     login_session['username'] = data['name']
     login_session['picture'] = data['picture']
     login_session['email'] = data['email']
+    print login_session['username']
+
+    user_id = getUserID(login_session['email'])
+    if not user_id:
+        user_id = createUser(login_session)
+    login_session['user_id'] = user_id
+
+
     output = """
         <h1>Welcome {}</h1>
         <img src="{}">
@@ -135,7 +146,7 @@ def categories():
 def category_form():
     """ Creates or process the form to create or edit categories"""
     if request.method == 'POST':
-        new_category = models.Category(name = request.form['name'], description=request.form['description'])
+        new_category = models.Category(name = request.form['name'], description=request.form['description'], user_id=login_session['user_id'])
         session.add(new_category)
         session.commit()
         page = Page()
@@ -201,7 +212,7 @@ def category_delete(category=None):
 def term_form(category=None):
     """ Creates or process the form to create or edit terms"""
     if request.method == 'POST':
-        new_item = models.Item(name = request.form['name'], description=request.form['description'], category_id=int(category))
+        new_item = models.Item(name = request.form['name'], description=request.form['description'], user_id=login_session['user_id'], category_id=int(category))
         session.add(new_item)
         session.commit()
         page = Page()
@@ -275,6 +286,23 @@ def logo():
     return flask.send_from_directory("", 'logo.png')
 
 
+def createUser(login_session):
+    newuser = User(name=login_session['username'], email=login_session['email'], avatar = login_session['picture'])
+    session.add(newUser)
+    session.commit()
+    user = session.query(User).filter_by(email=login_session['email']).one()
+    return user.id
+
+def getUserInfo(user_id):
+    user = session.query(User).filter_by(id=user_id).one()
+    return user
+
+def getUserID(email):
+    try: 
+        user = session.query(User).filter_by(email = email).one()
+        return user.id
+    except:
+        return None
         
 
 clientID = '1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com'

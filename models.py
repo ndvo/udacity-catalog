@@ -1,5 +1,6 @@
 import flask
-from sqlalchemy import Column, Integer, String, Text, ForeignKey
+import datetime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy import create_engine
@@ -12,11 +13,23 @@ DBsession.bind = engine
 DBsession.configure(bind=engine)
 session = DBsession()
 
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    email = Column(String(150), unique=True, nullable=False)
+    name = Column(String(150), nullable=True)
+    avatar = Column(String(200))
+    active = Column(Boolean, default=False)
+    tokens = Column(DateTime, default=datetime.datetime.utcnow())
+
 class Category(Base):
     __tablename__ = 'categories'
     id = Column(Integer, primary_key = True)
     name = Column(String(255))
     description = Column(Text())
+    user_id = Column(Integer, ForeignKey('users.id'))
+    user = relationship(User)
+
 
     def load_items(self):
         try:
@@ -55,6 +68,8 @@ class Item(Base):
     description = Column(Text())
     category_id = Column(Integer, ForeignKey('categories.id'))
     category = relationship(Category)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    user = relationship(User)
 
     def to_link(self):
         self.href = '/category/'+str(self.category_id)+'/term/'+str(self.id)
