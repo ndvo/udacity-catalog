@@ -1,8 +1,13 @@
 import flask
-from flask import request, jsonify, Flask 
+from flask import request, jsonify, Flask , make_response
 from flask import session as login_session
 from sqlalchemy import asc, desc
 import random, string
+from oauth2client.client import flow_from_clientsecrets
+from oauth2client.client import FlowExchangeError
+import httplib2
+import json
+import requests
 
 app = Flask(__name__, template_folder="templates", static_url_path="")
 app.secret_key = b'97wt2msdeaijknitaoc,.h pc/,teias'
@@ -15,6 +20,7 @@ class Page():
     title = ""
     content = ""
     model = ""
+    login_session = login_session
 
     
 
@@ -44,11 +50,68 @@ def homepage():
         page.content.main += flask.render_template('list.html', List=[flask.render_template('link.html', link=i) for i in items])
     return flask.render_template('base.html', page=page);
 
-@app.route("/login")
-def login():
+def load_session_state():
+    """ Creates a new session state. """
     state = ''.join(random.choice(string.ascii_uppercase + string.digits) for x in xrange(32))
     login_session['state'] = state
-    return "Session state %s" % login_session['state']
+
+CLIENT_ID = json.loads(open('client_secret_1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com.json', 'r').read())
+@app.route('/gconnect', methods=['POST'])
+def gconnect():
+    if request.args.get('state') != login_session['state']:
+        print request.args.get('state'), login_session['state']
+        print request.args
+        response = make_response(json.dumps('Invalid state parameter'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    code = request.data
+    try: 
+        print code
+        oauth_flow = flow_from_clientsecrets('client_secret_1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com.json', access='offline', scope ='')
+        oauth_flow.redirect_uri = 'postmessage'
+        credentials = oauth_flow.step2_exchange(code)
+    except FlowExchangeError as e :
+        response = make_response(json.dumps('Failed to upgrade authorization code.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        print e
+        return response
+    access_token = credentias.access_token
+    url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s' % access_token)
+    h = httplib2.Http()
+    result = json.loads(h.request(url, 'GET')[1])
+    if result.get('error') is not None:
+        response = make_response(json.dumps(result.get('error')), 500)
+        response.headers['Content-Type'] = 'application/json'
+    gplus_id = credentials.id_token['sub']
+    if result['user_id'] != gplus_id:
+        response = make_response(json.dumps("Token's user ID doesn't match given User ID."), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    if result['issued_to'] != CLIENT_ID:
+        response = make_response( json.dumps("Token's client ID does not match"), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    stored_credentials = login_session.get('credentials')
+    stored_gplus_id = login_session.get('gplus_id')
+    if stored_credentials is not None and gplus_id == stored_gplus_id:
+        response = make_response(json.dumps('Current user is already connected.'), 200)
+        response.headers['Content-Type'] = 'application/json'
+    login_session['credentials'] = credentials
+    login_session['gplus_id'] = gplus_id
+    userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
+    params = {'access_token': credentials.access_token, 'alt': 'json'}
+    answer = request.get(userinfo_url, params=params)
+    data = answer.json()
+    login_session['username'] = data['name']
+    login_session['picture'] = data['picture']
+    login_session['email'] = data['email']
+    output = """
+        <h1>Welcome {}</h1>
+        <img src="{}">
+    """.format(login_session['username'] , login_session['picture'])
+    return output
+
+
 
 
 @app.route("/categories", methods=['GET'])
@@ -110,6 +173,28 @@ def category(category=None):
         pass
     if request.method == 'DELETE':
         return "Category page";
+
+@app.route("/cateory/<category>/delete", methods=['GET', 'POST',  'DELETE'])
+def category_delete(category=None):
+    """ Delete a category.
+    
+    If the value of action is all, every item associated to the category will also be deleted.
+    """
+    category = session.query(models.Category).get(category)
+    if request.method == 'GET':
+        page = Page()
+        page.title = "Delete category "+category.name
+        page.description = "Deletion page for category "+category.name
+        page.content = Page()
+        page.content.title = "Deleting category "+category.name
+        page.content.main = flask.render_template('category_delete.html', category=category )
+        return flask.render_template
+    if request.method == 'POST':
+        if request.form['action']=='all':
+            for item in category.load_items():
+                session.delete(item)
+        session.delete(category)
+        session.commit()
 
 
 @app.route("/categories/<category>/term/add", methods=['GET', 'POST'])
