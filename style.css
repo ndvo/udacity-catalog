@@ -18,6 +18,20 @@
     --widthMain: 1250px;
   }
 }
+body{
+  color: var(--colorDarker);
+  background: repeating-linear-gradient(
+  90deg, 
+  var(--colorDarker),
+  var(--colorDark),
+  var(--colorDarker),
+  var(--colorDark) 30px
+  );
+}
+body a{
+  color: var(--colorDark);
+  font-weight: bold;
+}
 header, aside{
   background: var(--colorLight);
 }
@@ -25,6 +39,17 @@ header, main{
   margin: 0 auto;
   max-width: var(--widthMain);
   padding: var(--paddingRegionMain);
+}
+header #logo img{
+  width: 300px;
+  display: inline-block;
+  vertical-align: middle;
+}
+header #logo h1{
+  display: inline-block;
+  vertical-align: middle;
+  font-family: sans-serif;
+  font-weight: 100;
 }
 main{
   background: var(--colorLighter);
@@ -49,4 +74,15 @@ nav a{
   font-family: Sans-Serif;
   font-weight: bold;
   margin-right: 0.5em;
+}
+
+main form label{
+  width: 10em;
+}
+
+main form input[type=text], main form textarea{
+  display: block;
+  width: 50%;
+  margin: 1em;
+  padding: 0.5em;
 }

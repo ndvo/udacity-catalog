@@ -4,7 +4,10 @@
     <title>{{page.title}}</title>
     <meta name="description" content="{{page.description}}">
     <meta charset="UTF-8">
+    <meta name="google-signin-client_id" content="1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com">
     <link rel="stylesheet" href="/style.css" type="text/css">
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"> </script>
+    <script src="//apis.google.com/js/platform.js" async defer> </script>
   </head>
   <body>
     <header>
@@ -17,7 +20,11 @@
         <a href="/categories">Categories</a>
         <a href="/categories/add">New category</a>
         {% if (page.content.model == 'category' and page.content.id) %}
-        <a href="/categories/{{page.content.id}}/term/add">Ad a new item to this category</a>
+        <a href="/categories/{{page.content.id}}/term/add">Add a new item to this category</a>
+        <a href="/categories/{{page.content.id}}/edit">Edit this category</a>
+        {% endif %}
+        {% if page.content.model == 'item' and page.content.id  %}
+        <a href="/categories/{{category.id}}/term/page.content.id}}/edit">Edit this category</a>
         {% endif %}
       </nav>
       <section class="login">
@@ -25,6 +32,9 @@
           <input type="text" placeholder="Username or email">
           <input type="password" placeholder="Password">
           <button type="submit">Login</button>
+          <div id="signinButton">
+            <div class="g-signin2" data-onsuccess="onSignIn"></div>
+          </div>
         </form>
       </section>
     </header>

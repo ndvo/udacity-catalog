@@ -1,7 +1,11 @@
 import flask
-from flask import request, jsonify, Flask
+from flask import request, jsonify, Flask 
+from flask import session as login_session
 from sqlalchemy import asc, desc
+import random, string
+
 app = Flask(__name__, template_folder="templates", static_url_path="")
+app.secret_key = b'97wt2msdeaijknitaoc,.h pc/,teias'
 
 
 import models
@@ -39,6 +43,12 @@ def homepage():
             i.to_link()
         page.content.main += flask.render_template('list.html', List=[flask.render_template('link.html', link=i) for i in items])
     return flask.render_template('base.html', page=page);
+
+@app.route("/login")
+def login():
+    state = ''.join(random.choice(string.ascii_uppercase + string.digits) for x in xrange(32))
+    login_session['state'] = state
+    return "Session state %s" % login_session['state']
 
 
 @app.route("/categories", methods=['GET'])
@@ -174,6 +184,20 @@ def css():
     """ Serve the main CSS file. """
     return flask.send_from_directory("", 'style.css')
 
+@app.route("/logo.png")
+def logo():
+    """ Serve the logo file. """
+    return flask.send_from_directory("", 'logo.png')
+
+
+        
+
+clientID = '1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com'
+
+
+
+
 if __name__ == '__main__':
 	app.debug = True
 	app.run(host='0.0.0.0', port=5000)
+
