@@ -79,7 +79,7 @@ class Item(Base):
     user = relationship(User)
 
     def to_link(self):
-        self.href = '/category/'+str(self.category_id)+'/term/'+str(self.id)
+        self.href = '/category/'+str(self.category_id)+'/item/'+str(self.id)
         self.text = self.name
         self.title = 'Visit '+self.name+' page'
         self.htmlclass = 'item'

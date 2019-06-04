@@ -32,10 +32,10 @@ class Page(object):
     login_session = login_session
 
     def __init__(self, title="", contentmain="", model="", description="", root=True):
-        self.title = ""
+        self.title = title
         self.aside = ""
-        self.model = ""
-        self.description = ""
+        self.model = model
+        self.description = description
         self.user = login_session['username'] if 'username' in login_session else None
         print self.user
         if root:
@@ -44,11 +44,8 @@ class Page(object):
 
     def set_content(self, title, main):
         """ Sets the value for content Page """
-        try:
-            self.content.title
-        except AttributeError:
-            self.content = Page(title=self.title, root=False)
-            self.content.main = main
+        self.content = Page(title=title, root=False)
+        self.content.main = main
 
     def render(self):
         """ Creates a HTML string with the content of the page."""
@@ -104,6 +101,11 @@ def load_session_state():
 CLIENT_ID = "1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com"
 @app.route('/gconnect', methods=['POST'])
 def gconnect():
+    """ Implements the google authentication
+    Checks the token received from the client application and stores authorized
+    users in session.
+    Creates authorized users if they do not exist in the database.
+    """
     if 'state' not in login_session.keys():
         load_session_state()
     if request.args.get('state') != login_session['state']:
@@ -189,9 +191,12 @@ def categories():
 
 @app.route("/categories/add", methods=['GET', 'POST'])
 def category_form():
-    if 'username' not in login_session:
-        return Page(title="Unauthorized", contentmain="You are not authorized to see this page.").render()
     """ Creates or process the form to create"""
+    if 'username' not in login_session:
+        return Page(
+            title="Unauthorized",
+            contentmain="You are not authorized to see this page."
+            ).render()
     if request.method == 'POST':
         new_category = models.Category(
             name=request.form['name'],
@@ -200,10 +205,14 @@ def category_form():
             )
         session.add(new_category)
         session.commit()
-        return Page(title='Success', contentmain=flask.render_template('success.html')).render()
+        return Page(
+            title='Success',
+            contentmain=flask.render_template('success.html')
+            ).render()
     else:
         return Page(
-            description="This page allows the creation of new categories to the application",
+            description="This page allows the creation of new categories \
+                to the application",
             title="Create a new category",
             contentmain=flask.render_template('form_category.html')
         ).render()
@@ -233,8 +242,12 @@ def category(category=None):
 
 @app.route("/category/<category>/edit", methods=['GET', 'POST'])
 def category_edit(category=None):
+    """ Creates and process the category edition form."""
     if 'username' not in login_session:
-        return Page(title="Unauthorized", contentmain="You are not authorized to see this page.").render()
+        return Page(
+            title="Unauthorized",
+            contentmain="You are not authorized to see this page."
+            ).render()
     if request.method == 'GET':
         category = session.query(models.Category).get(category)
         return Page(
@@ -252,12 +265,15 @@ def category_edit(category=None):
 
 @app.route("/category/<category>/delete", methods=['GET', 'POST', 'DELETE'])
 def category_delete(category=None):
-    if 'username' not in login_session:
-        return Page(title="Unauthorized", contentmain="You are not authorized to see this page.").render()
     """ Delete a category.
 
     If the value of action is all, every item associated to the category will also be deleted.
     """
+    if 'username' not in login_session:
+        return Page(
+            title="Unauthorized",
+            contentmain="You are not authorized to see this page."
+            ).render()
     category = session.query(models.Category).get(category)
     if request.method == 'GET':
         return Page(
@@ -275,39 +291,45 @@ def category_delete(category=None):
         session.commit()
         return Page(
             title="Category "+category.name+" was deleted",
-            contentmain="The category was completely removed, including the following terms: "+\
+            contentmain="The category was completely removed, including the following items: "+\
             ", ".join([item for item in deleted])+".").render()
 
-@app.route("/category/<category>/term/<term>/delete", methods=['GET', 'POST', 'DELETE'])
-def term_delete(category=None, term=None):
+@app.route("/category/<category>/item/<item>/delete", methods=['GET', 'POST', 'DELETE'])
+def item_delete(category=None, item=None):
+    """ Delete an item.  """
     if 'username' not in login_session:
-        return Page(title="Unauthorized", contentmain="You are not authorized to see this page.").render()
-    """ Delete a term.  """
+        return Page(
+            title="Unauthorized",
+            contentmain="You are not authorized to see this page."
+            ).render()
     category = session.query(models.Category).get(category)
-    term = session.query(models.Item).get(term)
+    item = session.query(models.Item).get(item)
     if request.method == 'GET':
         page = Page(
-            title="Delete term "+term.name+" from "+category.name,
-            description="Deletion page for term "+term.name
+            title="Delete item "+item.name+" from "+category.name,
+            description="Deletion page for item "+item.name
             )
-        page.content.title = "Deleting term "+term.name+" from "+category.name
-        page.content.main = flask.render_template('term_delete.html', category=category, item=term)
+        page.content.title = "Deleting item "+item.name+" from "+category.name
+        page.content.main = flask.render_template('item_delete.html', category=category, item=item)
         return flask.render_template('base.html', page=page)
     if request.method == 'POST':
-        session.delete(term)
+        session.delete(item)
         session.commit()
         page = Page()
         page.content = Page()
-        page.title = page.content.title = "Term "+term.name+" was deleted"
-        page.content.main = "The term was completely removed."
+        page.title = page.content.title = "Term "+item.name+" was deleted"
+        page.content.main = "The item was completely removed."
         return flask.render_template('base.html', page=page)
 
 
 
-@app.route("/category/<category>/add/term", methods=['GET', 'POST'])
-def term_form(category=None):
+@app.route("/category/<category>/add/item", methods=['GET', 'POST'])
+def item_form(category=None):
     if 'username' not in login_session:
-        return Page(title="Unauthorized", contentmain="You are not authorized to see this page.").render()
+        return Page(
+            title="Unauthorized",
+            contentmain="You are not authorized to see this page."
+            ).render()
     """ Creates or process the form to create"""
     if request.method == 'POST':
         new_item = models.Item(
@@ -324,58 +346,60 @@ def term_form(category=None):
         page = Page(
             title="Create a new category",
             description="This page allows the creation of new categories to the application",
-            contentmain=flask.render_template('form_term.html', category=category)
+            contentmain=flask.render_template('form_item.html', category=category)
             )
         return flask.render_template('base.html', page=page)
 
 
-@app.route("/category/<category>/term/<term>", methods=['GET', 'PUT', 'DELETE'])
-def term(category=None, term=None):
-    """ Creates a page for a single term of a category. """
+@app.route("/category/<category>/item/<item>", methods=['GET', 'PUT', 'DELETE'])
+def item(category=None, item=None):
+    """ Creates a page for a single item of a category. """
     if request.method == 'POST':
         pass
     if request.method == 'GET':
         category = session.query(models.Category).get(category)
         category.to_link()
         category.link = flask.render_template('link.html', link=category)
-        term = session.query(models.Item).get(term)
+        item = session.query(models.Item).get(item)
         page = Page(
-            title=category.name+": "+term.name,
-            description="This page describes "+term.name+" from the category "+category.name,
-            contentmain=flask.render_template('term.html', category=category, item=term)
+            title=category.name+": "+item.name,
+            description="This page describes "+item.name+" from the category "+category.name,
+            contentmain=flask.render_template('item.html', category=category, item=item)
             )
-        page.content.id = term.id
-        page.content.title = term.name
+        page.content.id = item.id
+        page.content.title = item.name
         page.content.model = 'item'
-        return flask.render_template('base.html', page=page, category=category, item=term)
+        return flask.render_template('base.html', page=page, category=category, item=item)
     if request.method == 'PUT':
         pass
     if request.method == 'DELETE':
         return "Category page"
 
-@app.route("/category/<category>/term/<term>/edit", methods=['GET','POST'])
-def term_edit(category=None, term=None):
+@app.route("/category/<category>/item/<item>/edit", methods=['GET', 'POST'])
+def item_edit(category=None, item=None):
     if 'username' not in login_session:
-        return Page(title="Unauthorized", contentmain="You are not authorized to see this page.").render()
+        return Page(
+            title="Unauthorized",
+            contentmain="You are not authorized to see this page."
+            ).render()
     category = session.query(models.Category).get(category)
-    term = session.query(models.Item).get(term)
+    item = session.query(models.Item).get(item)
     if request.method == 'GET':
         page = Page(
-            title="Edit the term "+term.name,
+            title="Edit the item "+item.name,
             description="This page allows the creation of new categories to the application",
             contentmain=flask.render_template(
-                'form_term.html',
+                'form_item.html',
                 category=category,
-                item=term)
+                item=item)
             )
         return flask.render_template('base.html', page=page)
 
     if request.method == 'POST':
-        term.name = request.form['name']
-        term.description = request.form['description']
+        item.name = request.form['name']
+        item.description = request.form['description']
         session.commit()
         return Page(title='Success', contentmain=flask.render_template('success.html')).render()
-        
 
 # JSON endpoints
 

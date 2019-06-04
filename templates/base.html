@@ -20,13 +20,13 @@
         {% if page.user %}
         <a class="protected" href="/categories/add">New category</a>
         {% if (page.content.model == 'category' and page.content.id) %}
-        <a class="protected" href="/category/{{page.content.id}}/add/term">Add a new item to this category</a>
+        <a class="protected" href="/category/{{page.content.id}}/add/item">Add a new item to this category</a>
         <a class="protected" href="/category/{{page.content.id}}/edit">Edit this category</a>
         <a class="protected" href="/category/{{page.content.id}}/delete">Delete this category</a>
         {% endif %}
         {% if page.content.model == 'item' and page.content.id  %}
-        <a class="protected" href="/category/{{category.id}}/term/{{page.content.id}}/edit">Edit this term</a>
-        <a class="protected" href="/category/{{category.id}}/term/{{page.content.id}}/delete">Delete this term</a>
+        <a class="protected" href="/category/{{category.id}}/item/{{page.content.id}}/edit">Edit this item</a>
+        <a class="protected" href="/category/{{category.id}}/item/{{page.content.id}}/delete">Delete this item</a>
         {% endif %}
         {% endif %}
       </nav>
