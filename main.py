@@ -1,9 +1,17 @@
+"""
+
+Main script that controls the application.
+
+It implements routes and build responses based on provided templates.
+
+"""
 import flask
 import httplib2
 import json
 import models
-import random, string
+import random
 import requests
+import string
 from flask import request, jsonify, Flask, make_response
 from flask import session as login_session
 from google.auth.transport import requests as grequests
@@ -18,36 +26,56 @@ app.secret_key = b'97wt2msdeaijknitaoc,.h pc/,teias'
 
 
 
-class Page():
+class Page(object):
     """ Generic page class to store values to be passed to templates"""
-    title = ""
-    content = ""
-    model = ""
+
     login_session = login_session
 
-#TODO: update
+    def __init__(self, title="", contentmain="", model="", description="", root=True):
+        self.title = ""
+        self.aside = ""
+        self.model = ""
+        self.description = ""
+        if root:
+            self.content = Page(title=title, root=False)
+            self.content.main = contentmain
+
+    def set_content(self, title, main):
+        """ Sets the value for content Page """
+        try:
+            self.content.title
+        except AttributeError:
+            self.content = Page(title=self.title, root=False)
+            self.content.main = main
+
+    def render(self):
+        """ Creates a HTML string with the content of the page."""
+        return flask.render_template('base.html', page=self)
 
 
 @app.route("/")
 def homepage():
-    """ Creates the main page with a list of categories and a list of recent items."""
+    """ Creates the front page with a list of categories and a list of recent items."""
     categories = session.query(models.Category).all()
-    page = Page()
-    page.title = "Welcome"
-    page.description = "A categorization application, that stores items into categories."
+    page = Page(
+        title="Wellcome",
+        description="A categorization application, that stores items into categories.",
+        )
     if not categories:
-        page.content = Page()
-        page.content.title = "Sorry, there is no category yet."
-        page.content.main = """
+        page.set_content(
+            title="Sorry, there is no category yet.",
+            main="""
             <p>There are no categories created yet. You may create some using the \"New Category\" link.</p>
             """
+            )
     else:
-        page.content = Page()
-        page.content.title = "Welcome to the Category App"
-        page.content.main = """
-        <p>This application allows you to organize items into categories and retrieve them properly.</p>
-        <h2>Recent items</h2>
-        """
+        page.set_content(
+            title="Welcome to the Category App",
+            main="""
+            <p>This application allows you to organize items into categories and retrieve them properly.</p>
+            <h2>Recent items</h2>
+            """
+            )
         categories = session.query(models.Category).order_by(asc(models.Category.name)).all()
         for c in categories:
             c.to_link()
@@ -63,7 +91,7 @@ def homepage():
             'list.html',
             List=[flask.render_template('link.html', link=i) for i in items]
             )
-    return flask.render_template('base.html', page=page)
+    return page.render()
 
 def load_session_state():
     """ Creates a new session state. """
@@ -81,7 +109,7 @@ def gconnect():
         return response
     payload = json.loads(request.data)
     token = payload['id_token']
-    try: 
+    try:
         idinfo = id_token.verify_oauth2_token(token, grequests.Request(), CLIENT_ID)
         print idinfo, 'idinfo'
         if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
@@ -99,7 +127,15 @@ def gconnect():
     if not user_id:
         user_id = createUser(login_session)
     login_session['user_id'] = user_id
-    response = make_response(json.dumps({'user':login_session['username'], 'avatar':login_session['picture'], 'email':login_session['email']}), 200)
+    response = make_response(
+        json.dumps(
+            {
+                'user': login_session['username'],
+                'avatar': login_session['picture'],
+                'email':login_session['email']
+                }
+            ),
+        200)
     response.headers['Content-Type'] = 'application/json'
     return response
 
@@ -131,39 +167,42 @@ def gdisconnect():
 def categories():
     """ Creates a list of the available categories. """
     if request.method == 'GET':
-        page = Page()
-        page.title = "Categories page"
-        page.description = "The full list of the categories available"
+        page = Page(
+            title="Categories page",
+            description="The full list of the categories available"
+            )
         categories = list(session.query(models.Category).all())
         for i in categories:
             i.to_link()
             i.link = flask.render_template('link.html', link=i)
-        page.content = Page()
         page.content.title = "Categories"
-        page.content.main = flask.render_template('definitionlist.html', htmlclass="categories", definitions=categories)
+        page.content.main = flask.render_template(
+            'definitionlist.html',
+            htmlclass="categories",
+            definitions=categories
+            )
         page.content.aside = ""
-        return flask.render_template('base.html', page=page)
+        return page.render()
 
 @app.route("/categories/add", methods=['GET', 'POST'])
 def category_form():
-    """ Creates or process the form to create or edit categories"""
+    """ Creates or process the form to create"""
     if request.method == 'POST':
-        new_category = models.Category(name = request.form['name'], description=request.form['description'], user_id=login_session['user_id'])
+        new_category = models.Category(
+            name=request.form['name'],
+            description=request.form['description'],
+            user_id=login_session['user_id']
+            )
         session.add(new_category)
         session.commit()
-        page = Page()
-        page.content = Page()
-        page.title = page.content.title = 'Success'
-        page.content.main = flask.render_template('success.html')
-        return flask.render_template('base.html', page=page)
+        return Page(title='Success', contentmain=flask.render_template('success.html')).render()
     else:
-        page = Page()
-        page.content = Page()
-        page.title = "Create a new category"
-        page.description = "This page allows the creation of new categories to the application"
-        page.content.title = "New category"
-        page.content.main = flask.render_template('form_category.html')
-        return flask.render_template('base.html', page=page)
+        return Page(
+            description="This page allows the creation of new categories to the application",
+            title="Create a new category",
+            contentmain=flask.render_template('form_category.html')
+        ).render()
+
 
 @app.route("/category/<category>", methods=['GET'])
 def category(category=None):
@@ -171,12 +210,12 @@ def category(category=None):
     if request.method == 'POST':
         pass
     if request.method == 'GET':
-        page = Page()
         category = session.query(models.Category).get(category)
         category.load_items_links()
-        page.title = category.name
-        page.description = "Describes the category "+category.name
-        page.content = Page()
+        page = Page(
+            title=category.name,
+            description="Describes the category "+category.name
+        )
         page.content.title = category.name
         page.content.main = flask.render_template('category_main.html', category=category)
         page.content.model = 'category'
@@ -187,48 +226,62 @@ def category(category=None):
     if request.method == 'DELETE':
         return "Category page"
 
-@app.route("/category/<category>/delete", methods=['GET', 'POST',  'DELETE'])
+@app.route("/category/<category>/edit", methods=['GET', 'POST'])
+def category_edit(category=None):
+    if request.method == 'GET':
+        category = session.query(models.Category).get(category)
+        return Page(
+            description="This page allows the creation of new categories to the application",
+            title="Create a new category",
+            contentmain=flask.render_template('form_category.html', category=category)
+        ).render()
+    if request.method == 'POST':
+        category = session.query(models.Category).get(category)
+        category.name = request.form['name']
+        category.description = request.form['description']
+        session.commit()
+        return Page(title='Success', contentmain=flask.render_template('success.html')).render()
+
+
+@app.route("/category/<category>/delete", methods=['GET', 'POST', 'DELETE'])
 def category_delete(category=None):
     """ Delete a category.
-    
+
     If the value of action is all, every item associated to the category will also be deleted.
     """
     category = session.query(models.Category).get(category)
     if request.method == 'GET':
-        page = Page()
-        page.title = "Delete category "+category.name
-        page.description = "Deletion page for category "+category.name
-        page.content = Page()
-        page.content.title = "Deleting category "+category.name
-        page.content.main = flask.render_template('category_delete.html', category=category )
-        return flask.render_template('base.html', page=page)
+        return Page(
+            title="Delete category "+category.name,
+            description="Deletion page for category "+category.name,
+            contentmain=flask.render_template('category_delete.html', category=category)
+            ).render()
     if request.method == 'POST':
         print category
         deleted = []
-        if request.form['action']=='all':
+        if request.form['action'] == 'all':
             for item in category.load_items():
                 deleted.append(item.name)
                 session.delete(item)
         session.delete(category)
         session.commit()
-        page = Page()
-        page.content = Page()
-        page.title = page.content.title = "Category "+category.name+" was deleted"
-        page.content.main = "The category was completely removed, including the following terms: "+", ".join([item.name for item in deleted])+"."
-        return flask.render_template('base.html', page=page)
+        return Page(
+            title="Category "+category.name+" was deleted",
+            contentmain="The category was completely removed, including the following terms: "+\
+            ", ".join([item for item in deleted])+".").render()
 
-@app.route("/category/<category>/term/<term>/delete", methods=['GET', 'POST',  'DELETE'])
+@app.route("/category/<category>/term/<term>/delete", methods=['GET', 'POST', 'DELETE'])
 def term_delete(category=None, term=None):
     """ Delete a term.  """
     category = session.query(models.Category).get(category)
     term = session.query(models.Item).get(term)
     if request.method == 'GET':
-        page = Page()
-        page.title = "Delete term "+term.name+" from "+category.name
-        page.description = "Deletion page for term "+term.name
-        page.content = Page()
+        page = Page(
+            title="Delete term "+term.name+" from "+category.name,
+            description="Deletion page for term "+term.name
+            )
         page.content.title = "Deleting term "+term.name+" from "+category.name
-        page.content.main = flask.render_template('term_delete.html', category=category , item=term)
+        page.content.main = flask.render_template('term_delete.html', category=category, item=term)
         return flask.render_template('base.html', page=page)
     if request.method == 'POST':
         session.delete(term)
@@ -241,26 +294,26 @@ def term_delete(category=None, term=None):
 
 
 
-@app.route("/categories/<category>/term/add", methods=['GET', 'POST'])
+@app.route("/category/<category>/add/term", methods=['GET', 'POST'])
 def term_form(category=None):
-    """ Creates or process the form to create or edit terms"""
+    """ Creates or process the form to create"""
     if request.method == 'POST':
-        new_item = models.Item(name = request.form['name'], description=request.form['description'], user_id=login_session['user_id'], category_id=int(category))
+        new_item = models.Item(
+            name=request.form['name'],
+            description=request.form['description'],
+            user_id=login_session['user_id'],
+            category_id=int(category)
+            )
         session.add(new_item)
         session.commit()
-        page = Page()
-        page.content = Page()
-        page.title = page.content.title = 'Success'
-        page.content.main = flask.render_template('success.html')
-        return flask.render_template('base.html', page=page)
+        return Page(title='Success', contentmain=flask.render_template('success.html')).render()
     else:
         category = session.query(models.Category).get(category)
-        page = Page()
-        page.content = Page()
-        page.title = "Create a new category"
-        page.description = "This page allows the creation of new categories to the application"
-        page.content.title = "New term in the category "+category.name
-        page.content.main = flask.render_template('form_term.html', category=category)
+        page = Page(
+            title="Create a new category",
+            description="This page allows the creation of new categories to the application",
+            contentmain=flask.render_template('form_term.html', category=category)
+            )
         return flask.render_template('base.html', page=page)
 
 
@@ -270,30 +323,52 @@ def term(category=None, term=None):
     if request.method == 'POST':
         pass
     if request.method == 'GET':
-        page = Page()
         category = session.query(models.Category).get(category)
         category.to_link()
         category.link = flask.render_template('link.html', link=category)
         term = session.query(models.Item).get(term)
-        page.title = category.name+": "+term.name
-        page.description = "This page describes "+term.name+" from the category "+category.name
-        page.content = Page()
-        page.content.title = term.name
+        page = Page(
+            title=category.name+": "+term.name,
+            description="This page describes "+term.name+" from the category "+category.name,
+            contentmain=flask.render_template('term.html', category=category, item=term)
+            )
         page.content.id = term.id
+        page.content.title = term.name
         page.content.model = 'item'
-        page.content.main = flask.render_template('term.html', category=category, item=term)
         return flask.render_template('base.html', page=page, category=category, item=term)
     if request.method == 'PUT':
         pass
     if request.method == 'DELETE':
         return "Category page"
 
+@app.route("/category/<category>/term/<term>/edit", methods=['GET','POST'])
+def term_edit(category=None, term=None):
+    category = session.query(models.Category).get(category)
+    term = session.query(models.Item).get(term)
+    if request.method == 'GET':
+        page = Page(
+            title="Edit the term "+term.name,
+            description="This page allows the creation of new categories to the application",
+            contentmain=flask.render_template(
+                'form_term.html',
+                category=category,
+                item=term)
+            )
+        return flask.render_template('base.html', page=page)
+
+    if request.method == 'POST':
+        term.name = request.form['name']
+        term.description = request.form['description']
+        session.commit()
+        return Page(title='Success', contentmain=flask.render_template('success.html')).render()
+        
+
 # JSON endpoints
 
 @app.route("/catalog.json", methods=['GET'])
 def api_full_catalog():
     """ Returns the full catalog.
-    
+
     This may become heavy on the database if the application is heavily used.
     In such case, the results should be paginated.
     """
@@ -303,7 +378,7 @@ def api_full_catalog():
 @app.route("/catalog/category/<category>.json", methods=['GET'])
 def api_category(category=None):
     """ Returns the JSON data for a specific category given by a category id.
-    
+
     This may become heavy on the database if a single category has a lot of items.
     In such case, the results should be paginated.
     """
@@ -324,7 +399,11 @@ def logo():
 
 
 def createUser(login_session):
-    new_user = models.User(name=login_session['username'], email=login_session['email'], avatar = login_session['picture'])
+    new_user = models.User(
+        name=login_session['username'],
+        email=login_session['email'],
+        avatar=login_session['picture']
+        )
     session.add(new_user)
     session.commit()
     user = session.query(models.User).filter_by(email=login_session['email']).one()
@@ -335,12 +414,12 @@ def getUserInfo(user_id):
     return user
 
 def getUserID(email):
-    try: 
-        user = session.query(models.User).filter_by(email = email).one()
+    try:
+        user = session.query(models.User).filter_by(email=email).one()
         return user.id
     except:
         return None
-        
+
 
 clientID = '1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com'
 
@@ -348,6 +427,5 @@ clientID = '1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleuserconten
 
 
 if __name__ == '__main__':
-	app.debug = True
-	app.run(host='0.0.0.0', port=5000)
-
+    app.debug = True
+    app.run(host='0.0.0.0', port=5000)

@@ -1,3 +1,10 @@
+""" 
+Creates the models of the data used in the application.
+
+There are three models: User, Category and Item. Both items and categories have
+associated users and items also have associated categories.
+
+"""
 import flask
 import datetime
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, DateTime
