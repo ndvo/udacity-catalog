@@ -1,22 +1,22 @@
 import flask
-from flask import request, jsonify, Flask , make_response
-from flask import session as login_session
-from sqlalchemy import asc, desc
-import random, string
-from oauth2client.client import flow_from_clientsecrets
-from oauth2client.client import FlowExchangeError
-from google.oauth2 import id_token
-from google.auth.transport import requests as grequests
 import httplib2
 import json
+import models
+import random, string
 import requests
+from flask import request, jsonify, Flask, make_response
+from flask import session as login_session
+from google.auth.transport import requests as grequests
+from google.oauth2 import id_token
+from models import session
+from oauth2client.client import FlowExchangeError
+from oauth2client.client import flow_from_clientsecrets
+from sqlalchemy import asc, desc
 
 app = Flask(__name__, template_folder="templates", static_url_path="")
 app.secret_key = b'97wt2msdeaijknitaoc,.h pc/,teias'
 
 
-import models
-from models import session
 
 class Page():
     """ Generic page class to store values to be passed to templates"""
@@ -25,7 +25,8 @@ class Page():
     model = ""
     login_session = login_session
 
-    
+#TODO: update
+
 
 @app.route("/")
 def homepage():
@@ -37,21 +38,32 @@ def homepage():
     if not categories:
         page.content = Page()
         page.content.title = "Sorry, there is no category yet."
-        page.content.main =  "<p>There are no categories created yet. You may create some using the \"New Category\" link.</p>"
+        page.content.main = """
+            <p>There are no categories created yet. You may create some using the \"New Category\" link.</p>
+            """
     else:
         page.content = Page()
         page.content.title = "Welcome to the Category App"
-        page.content.main = "<p>This application allows you to organize items into categories and retrieve them properly.</p><h2>Recent items</h2>"
+        page.content.main = """
+        <p>This application allows you to organize items into categories and retrieve them properly.</p>
+        <h2>Recent items</h2>
+        """
         categories = session.query(models.Category).order_by(asc(models.Category.name)).all()
         for c in categories:
             c.to_link()
         page.content.aside = "<h2>Categories</h2>"
-        page.content.aside += flask.render_template('list.html', List=[flask.render_template('link.html', link=c) for c in categories])
+        page.content.aside += flask.render_template(
+            'list.html',
+            List=[flask.render_template('link.html', link=c) for c in categories]
+            )
         items = list(session.query(models.Item).order_by(desc(models.Item.id)).limit(10))
         for i in items:
             i.to_link()
-        page.content.main += flask.render_template('list.html', List=[flask.render_template('link.html', link=i) for i in items])
-    return flask.render_template('base.html', page=page);
+        page.content.main += flask.render_template(
+            'list.html',
+            List=[flask.render_template('link.html', link=i) for i in items]
+            )
+    return flask.render_template('base.html', page=page)
 
 def load_session_state():
     """ Creates a new session state. """
@@ -69,8 +81,6 @@ def gconnect():
         return response
     payload = json.loads(request.data)
     token = payload['id_token']
-    print token
-    print 'payload' , payload
     try: 
         idinfo = id_token.verify_oauth2_token(token, grequests.Request(), CLIENT_ID)
         print idinfo, 'idinfo'
@@ -78,18 +88,13 @@ def gconnect():
             raise ValueError('Wrong issuer')
         userid = idinfo['sub']
     except ValueError as e:
-        print e
         response = make_response(json.dumps('Invalid token'), 401)
         response.headers['Content-Type'] = 'application/json'
         return response
-    print idinfo
-
     login_session['access_token'] = token
     login_session['username'] = idinfo['name']
     login_session['picture'] = idinfo['picture']
     login_session['email'] = idinfo['email']
-    #print login_session['username']
-
     user_id = getUserID(login_session['email'])
     if not user_id:
         user_id = createUser(login_session)
@@ -106,10 +111,7 @@ def gdisconnect():
         response.headers['Content-Type'] = 'application/json'
         return response
     url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % login_session['access_token']
-    h = httplib2.Http()
-    result = h.request(url, 'GET')[0]
-    print 'result is '
-    print result
+    result = httplib2.Http().request(url, 'GET')[0]
     if result['status'] == '200':
         del login_session['access_token']
         del login_session['username']
@@ -130,7 +132,7 @@ def categories():
     """ Creates a list of the available categories. """
     if request.method == 'GET':
         page = Page()
-        page.title = "Categories page";
+        page.title = "Categories page"
         page.description = "The full list of the categories available"
         categories = list(session.query(models.Category).all())
         for i in categories:
@@ -183,7 +185,7 @@ def category(category=None):
     if request.method == 'PUT':
         pass
     if request.method == 'DELETE':
-        return "Category page";
+        return "Category page"
 
 @app.route("/category/<category>/delete", methods=['GET', 'POST',  'DELETE'])
 def category_delete(category=None):
@@ -284,7 +286,9 @@ def term(category=None, term=None):
     if request.method == 'PUT':
         pass
     if request.method == 'DELETE':
-        return "Category page";
+        return "Category page"
+
+# JSON endpoints
 
 @app.route("/catalog.json", methods=['GET'])
 def api_full_catalog():
