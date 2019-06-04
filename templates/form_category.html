@@ -1,7 +1,8 @@
+
 <form method="POST" action="/categories/add" enctype="multipart/formdata">
-  <label for="name">Name</label>
-  <input type="text" name="name" placeholder="Choose a name for your category" />
+  <label for="name" >Name</label>
+  <input type="text" name="name" placeholder="Choose a name for your category" {%if category %}value={{category.name}} {% endif %} />
   <label for="description">Description</label>
-  <textarea rows="5" name="description"></textarea>
+  <textarea rows="5" name="description" value="teste">{% if category %}{{category.description}}{% endif %}</textarea>
   <button type="submit">Submit</button>
 </form>
