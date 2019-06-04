@@ -86,3 +86,7 @@ main form input[type=text], main form textarea{
   margin: 1em;
   padding: 0.5em;
 }
+section.user{
+  float: right;
+  margin: -60px 20px 0 0;
+}
