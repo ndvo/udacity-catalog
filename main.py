@@ -5,6 +5,8 @@ from sqlalchemy import asc, desc
 import random, string
 from oauth2client.client import flow_from_clientsecrets
 from oauth2client.client import FlowExchangeError
+from google.oauth2 import id_token
+from google.auth.transport import requests as grequests
 import httplib2
 import json
 import requests
@@ -17,6 +19,7 @@ import models
 from models import session
 
 class Page():
+    """ Generic page class to store values to be passed to templates"""
     title = ""
     content = ""
     model = ""
@@ -55,73 +58,70 @@ def load_session_state():
     state = ''.join(random.choice(string.ascii_uppercase + string.digits) for x in xrange(32))
     login_session['state'] = state
 
-CLIENT_ID = json.loads(open('client_secret_1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com.json', 'r').read())
+CLIENT_ID = "1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com"
 @app.route('/gconnect', methods=['POST'])
 def gconnect():
     if 'state' not in login_session.keys():
         load_session_state()
     if request.args.get('state') != login_session['state']:
-        print request.args.get('state'), login_session['state']
-        print request.args
         response = make_response(json.dumps('Invalid state parameter'), 401)
         response.headers['Content-Type'] = 'application/json'
         return response
-    code = request.data
-    print request.data, code
+    payload = json.loads(request.data)
+    token = payload['id_token']
+    print token
+    print 'payload' , payload
     try: 
-        oauth_flow = flow_from_clientsecrets('client_secret_1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com.json',  scope ='')
-        oauth_flow.redirect_uri = 'postmessage'
-        credentials = oauth_flow.step2_exchange(code)
-        print "oi"
-    except FlowExchangeError as e :
-        response = make_response(json.dumps('Failed to upgrade authorization code.'), 401)
-        response.headers['Content-Type'] = 'application/json'
+        idinfo = id_token.verify_oauth2_token(token, grequests.Request(), CLIENT_ID)
+        print idinfo, 'idinfo'
+        if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+            raise ValueError('Wrong issuer')
+        userid = idinfo['sub']
+    except ValueError as e:
         print e
-        return response
-    access_token = credentias.access_token
-    url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s' % access_token)
-    h = httplib2.Http()
-    result = json.loads(h.request(url, 'GET')[1])
-    if result.get('error') is not None:
-        response = make_response(json.dumps(result.get('error')), 500)
-        response.headers['Content-Type'] = 'application/json'
-    gplus_id = credentials.id_token['sub']
-    if result['user_id'] != gplus_id:
-        response = make_response(json.dumps("Token's user ID doesn't match given User ID."), 401)
+        response = make_response(json.dumps('Invalid token'), 401)
         response.headers['Content-Type'] = 'application/json'
         return response
-    if result['issued_to'] != CLIENT_ID:
-        response = make_response( json.dumps("Token's client ID does not match"), 401)
-        response.headers['Content-Type'] = 'application/json'
-        return response
-    stored_credentials = login_session.get('credentials')
-    stored_gplus_id = login_session.get('gplus_id')
-    if stored_credentials is not None and gplus_id == stored_gplus_id:
-        response = make_response(json.dumps('Current user is already connected.'), 200)
-        response.headers['Content-Type'] = 'application/json'
-    login_session['credentials'] = credentials
-    login_session['gplus_id'] = gplus_id
-    userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
-    params = {'access_token': credentials.access_token, 'alt': 'json'}
-    answer = request.get(userinfo_url, params=params)
-    data = answer.json()
-    login_session['username'] = data['name']
-    login_session['picture'] = data['picture']
-    login_session['email'] = data['email']
-    print login_session['username']
+    print idinfo
+
+    login_session['access_token'] = token
+    login_session['username'] = idinfo['name']
+    login_session['picture'] = idinfo['picture']
+    login_session['email'] = idinfo['email']
+    #print login_session['username']
 
     user_id = getUserID(login_session['email'])
     if not user_id:
         user_id = createUser(login_session)
     login_session['user_id'] = user_id
+    response = make_response(json.dumps({'user':login_session['username'], 'avatar':login_session['picture'], 'email':login_session['email']}), 200)
+    response.headers['Content-Type'] = 'application/json'
+    return response
 
-
-    output = """
-        <h1>Welcome {}</h1>
-        <img src="{}">
-    """.format(login_session['username'] , login_session['picture'])
-    return output
-
+@app.route('/gdisconnect', methods=['POST'])
+def gdisconnect():
+    access_token = login_session.get('access_token')
+    if access_token is None:
+        response = make_response(json.dumps('Current user not connected.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % login_session['access_token']
+    h = httplib2.Http()
+    result = h.request(url, 'GET')[0]
+    print 'result is '
+    print result
+    if result['status'] == '200':
+        del login_session['access_token']
+        del login_session['username']
+        del login_session['email']
+        del login_session['picture']
+        response = make_response(json.dumps('Successfully disconnected.'), 200)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    else:
+        response = make_response(json.dumps('Failed to revoke token for given user.', 400))
+        response.headers['Content-Type'] = 'application/json'
+    return response
 
 
 
@@ -185,7 +185,7 @@ def category(category=None):
     if request.method == 'DELETE':
         return "Category page";
 
-@app.route("/cateory/<category>/delete", methods=['GET', 'POST',  'DELETE'])
+@app.route("/category/<category>/delete", methods=['GET', 'POST',  'DELETE'])
 def category_delete(category=None):
     """ Delete a category.
     
@@ -199,13 +199,44 @@ def category_delete(category=None):
         page.content = Page()
         page.content.title = "Deleting category "+category.name
         page.content.main = flask.render_template('category_delete.html', category=category )
-        return flask.render_template
+        return flask.render_template('base.html', page=page)
     if request.method == 'POST':
+        print category
+        deleted = []
         if request.form['action']=='all':
             for item in category.load_items():
+                deleted.append(item.name)
                 session.delete(item)
         session.delete(category)
         session.commit()
+        page = Page()
+        page.content = Page()
+        page.title = page.content.title = "Category "+category.name+" was deleted"
+        page.content.main = "The category was completely removed, including the following terms: "+", ".join([item.name for item in deleted])+"."
+        return flask.render_template('base.html', page=page)
+
+@app.route("/category/<category>/term/<term>/delete", methods=['GET', 'POST',  'DELETE'])
+def term_delete(category=None, term=None):
+    """ Delete a term.  """
+    category = session.query(models.Category).get(category)
+    term = session.query(models.Item).get(term)
+    if request.method == 'GET':
+        page = Page()
+        page.title = "Delete term "+term.name+" from "+category.name
+        page.description = "Deletion page for term "+term.name
+        page.content = Page()
+        page.content.title = "Deleting term "+term.name+" from "+category.name
+        page.content.main = flask.render_template('term_delete.html', category=category , item=term)
+        return flask.render_template('base.html', page=page)
+    if request.method == 'POST':
+        session.delete(term)
+        session.commit()
+        page = Page()
+        page.content = Page()
+        page.title = page.content.title = "Term "+term.name+" was deleted"
+        page.content.main = "The term was completely removed."
+        return flask.render_template('base.html', page=page)
+
 
 
 @app.route("/categories/<category>/term/add", methods=['GET', 'POST'])
@@ -246,8 +277,10 @@ def term(category=None, term=None):
         page.description = "This page describes "+term.name+" from the category "+category.name
         page.content = Page()
         page.content.title = term.name
+        page.content.id = term.id
+        page.content.model = 'item'
         page.content.main = flask.render_template('term.html', category=category, item=term)
-        return flask.render_template('base.html', page=page)
+        return flask.render_template('base.html', page=page, category=category, item=term)
     if request.method == 'PUT':
         pass
     if request.method == 'DELETE':
@@ -287,19 +320,19 @@ def logo():
 
 
 def createUser(login_session):
-    newuser = User(name=login_session['username'], email=login_session['email'], avatar = login_session['picture'])
-    session.add(newUser)
+    new_user = models.User(name=login_session['username'], email=login_session['email'], avatar = login_session['picture'])
+    session.add(new_user)
     session.commit()
-    user = session.query(User).filter_by(email=login_session['email']).one()
+    user = session.query(models.User).filter_by(email=login_session['email']).one()
     return user.id
 
 def getUserInfo(user_id):
-    user = session.query(User).filter_by(id=user_id).one()
+    user = session.query(models.User).filter_by(id=user_id).one()
     return user
 
 def getUserID(email):
     try: 
-        user = session.query(User).filter_by(email = email).one()
+        user = session.query(models.User).filter_by(email = email).one()
         return user.id
     except:
         return None

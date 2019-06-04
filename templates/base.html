@@ -6,9 +6,7 @@
     <meta charset="UTF-8">
     <meta name="google-signin-client_id" content="1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com">
     <link rel="stylesheet" href="/style.css" type="text/css">
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"> </script>
-    <script src="//apis.google.com/js/platform.js" async defer> </script>
-
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
   </head>
   <body>
     <header>
@@ -21,22 +19,22 @@
         <a href="/categories">Categories</a>
         <a href="/categories/add">New category</a>
         {% if (page.content.model == 'category' and page.content.id) %}
-        <a href="/categories/{{page.content.id}}/term/add">Add a new item to this category</a>
-        <a href="/categories/{{page.content.id}}/edit">Edit this category</a>
+        <a href="/category/{{page.content.id}}/term/add">Add a new item to this category</a>
+        <a href="/category/{{page.content.id}}/edit">Edit this category</a>
+        <a href="/category/{{page.content.id}}/delete">Delete this category</a>
         {% endif %}
         {% if page.content.model == 'item' and page.content.id  %}
-        <a href="/categories/{{category.id}}/term/page.content.id}}/edit">Edit this category</a>
+        <a href="/category/{{category.id}}/term/{{page.content.id}}/edit">Edit this term</a>
+        <a href="/category/{{category.id}}/term/{{page.content.id}}/delete">Delete this term</a>
         {% endif %}
       </nav>
-      <section class="login">
-        <form>
-          <input type="text" placeholder="Username or email">
-          <input type="password" placeholder="Password">
-          <button type="submit">Login</button>
+      <section class="user">
           <div id="signinButton">
-            <div class="g-signin2" data-onsuccess="onSignIn"></div>
+            <div class="g-signin2" data-onsuccess="onSignIn" data-theme="dark"></div>
           </div>
-        </form>
+          <div id="logout">
+            <a href="#" onclick="signOut();">Sign out</a>
+          </div>
       </section>
     </header>
     <main>
@@ -48,37 +46,51 @@
       <h1>{{page.content.title}}</h1>
       {{page.content.main | safe}}
     </main>
-    <div class="g-signin2" data-onsuccess="onSignIn" data-theme="dark"></div>
-    <script>
-function onSignIn(googleUser) {
-  //console.log(googleUser)
-  // Useful data for your client-side scripts:
-  var profile = googleUser.getBasicProfile();
-  //console.log("ID: " + profile.getId()); // Don't send this directly to your server!
-  //console.log('Full Name: ' + profile.getName());
-  //console.log('Given Name: ' + profile.getGivenName());
-  //console.log('Family Name: ' + profile.getFamilyName());
-  //console.log("Image URL: " + profile.getImageUrl());
-  //console.log("Email: " + profile.getEmail());
-  
 
+    <script>
+user = {};
+function onSignIn(googleUser) {
+  var profile = googleUser.getBasicProfile();
   // The ID token you need to pass to your backend:
   var response = googleUser.getAuthResponse(); 
   var id_token = response.id_token;
-  $.ajax({
-    type: 'POST',
-    url: '/gconnect?state={{page.login_session.state}}',
-    processData: false,
-    data: id_token,
-    contentType:  'application/octet-stream; charset=utf-8',
-    success: function(result){
-      if (result){
-        console.log("ieeei");
-      }
-    }
-  });
-
+  console.log(response);
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/gconnect?state={{page.login_session.state}}');
+  xhr.setRequestHeader('Content-Type', 'text/json');
+  xhr.onload = function(){
+    user = JSON.parse(xhr.responseText);
+    displayUser();
+  }
+  xhr.send(JSON.stringify(response));
 }
+
+function signOut(){
+  var auth2 = gapi.auth2.getAuthInstance();
+  auth2.signOut().then(function(){
+    console.log('User signed out.');
+  });
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/gdisconnect?state={{page.login_session.state}}');
+  xhr.setRequestHeader('Content-Type', 'text/json');
+  xhr.onload = function(){
+    console.log("User signed out");
+    user = {};
+    displayUser();
+  }
+  xhr.send(JSON.stringify('logout'));
+}
+
+function displayUser(){
+  if (user.email!== undefined){
+    document.querySelector('#signinButton').style.display = 'None';
+    document.querySelector('#logout').style.display = 'block';
+  } else{
+    document.querySelector('#signinButton').style.display = 'block';
+    document.querySelector('#logout').style.display = 'None';
+  }
+}
+displayUser();
     </script>
 
   </body>
