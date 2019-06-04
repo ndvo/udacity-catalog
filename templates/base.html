@@ -17,18 +17,25 @@
       <nav>
         <a href="/">Home</a>
         <a href="/categories">Categories</a>
-        <a href="/categories/add">New category</a>
+        {% if page.user %}
+        <a class="protected" href="/categories/add">New category</a>
         {% if (page.content.model == 'category' and page.content.id) %}
-        <a href="/category/{{page.content.id}}/add/term">Add a new item to this category</a>
-        <a href="/category/{{page.content.id}}/edit">Edit this category</a>
-        <a href="/category/{{page.content.id}}/delete">Delete this category</a>
+        <a class="protected" href="/category/{{page.content.id}}/add/term">Add a new item to this category</a>
+        <a class="protected" href="/category/{{page.content.id}}/edit">Edit this category</a>
+        <a class="protected" href="/category/{{page.content.id}}/delete">Delete this category</a>
         {% endif %}
         {% if page.content.model == 'item' and page.content.id  %}
-        <a href="/category/{{category.id}}/term/{{page.content.id}}/edit">Edit this term</a>
-        <a href="/category/{{category.id}}/term/{{page.content.id}}/delete">Delete this term</a>
+        <a class="protected" href="/category/{{category.id}}/term/{{page.content.id}}/edit">Edit this term</a>
+        <a class="protected" href="/category/{{category.id}}/term/{{page.content.id}}/delete">Delete this term</a>
+        {% endif %}
         {% endif %}
       </nav>
       <section class="user">
+          <div id="user">
+          {% if page.user %}
+            {{page.user}}
+          {% endif %}
+          </div>
           <div id="signinButton">
             <div class="g-signin2" data-onsuccess="onSignIn" data-theme="dark"></div>
           </div>
@@ -83,11 +90,26 @@ function signOut(){
 
 function displayUser(){
   if (user.email!== undefined){
-    document.querySelector('#signinButton').style.display = 'None';
-    document.querySelector('#logout').style.display = 'block';
+    document.querySelector('#signinButton').style.display = 'none';
+    document.querySelector('#logout').style.display = 'inline-block';
+    var u = document.querySelector('#user');
+    u.innerHTML = user.user;
+    u.style.display = 'inline-block';
+    var protectedlinks = document.querySelectorAll('a.protected');
+    for (var i=0; i<protectedlinks.length; i++){
+      protectedlinks[i].style.display = 'initial';
+    }
   } else{
-    document.querySelector('#signinButton').style.display = 'block';
-    document.querySelector('#logout').style.display = 'None';
+    document.querySelector('#signinButton').style.display = 'inline-block';
+    document.querySelector('#logout').style.display = 'none';
+    document.querySelector('#user').innerHTML = '';
+    var u = document.querySelector('#user');
+    u.innerHTML = '';
+    u.style.display = 'none';
+    var protectedlinks = document.querySelectorAll('a.protected');
+    for (var i=0; i<protectedlinks.length; i++){
+      protectedlinks[i].style.display = 'none';
+    }
   }
 }
 displayUser();

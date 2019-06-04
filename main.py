@@ -36,6 +36,8 @@ class Page(object):
         self.aside = ""
         self.model = ""
         self.description = ""
+        self.user = login_session['username'] if 'username' in login_session else None
+        print self.user
         if root:
             self.content = Page(title=title, root=False)
             self.content.main = contentmain
@@ -56,6 +58,7 @@ class Page(object):
 @app.route("/")
 def homepage():
     """ Creates the front page with a list of categories and a list of recent items."""
+
     categories = session.query(models.Category).all()
     page = Page(
         title="Wellcome",
@@ -111,7 +114,6 @@ def gconnect():
     token = payload['id_token']
     try:
         idinfo = id_token.verify_oauth2_token(token, grequests.Request(), CLIENT_ID)
-        print idinfo, 'idinfo'
         if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
             raise ValueError('Wrong issuer')
         userid = idinfo['sub']
@@ -148,11 +150,12 @@ def gdisconnect():
         return response
     url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % login_session['access_token']
     result = httplib2.Http().request(url, 'GET')[0]
+    # Logout even if it is not possible to revoke token
+    del login_session['access_token']
+    del login_session['username']
+    del login_session['email']
+    del login_session['picture']
     if result['status'] == '200':
-        del login_session['access_token']
-        del login_session['username']
-        del login_session['email']
-        del login_session['picture']
         response = make_response(json.dumps('Successfully disconnected.'), 200)
         response.headers['Content-Type'] = 'application/json'
         return response
@@ -186,6 +189,8 @@ def categories():
 
 @app.route("/categories/add", methods=['GET', 'POST'])
 def category_form():
+    if 'username' not in login_session:
+        return Page(title="Unauthorized", contentmain="You are not authorized to see this page.").render()
     """ Creates or process the form to create"""
     if request.method == 'POST':
         new_category = models.Category(
@@ -228,6 +233,8 @@ def category(category=None):
 
 @app.route("/category/<category>/edit", methods=['GET', 'POST'])
 def category_edit(category=None):
+    if 'username' not in login_session:
+        return Page(title="Unauthorized", contentmain="You are not authorized to see this page.").render()
     if request.method == 'GET':
         category = session.query(models.Category).get(category)
         return Page(
@@ -245,6 +252,8 @@ def category_edit(category=None):
 
 @app.route("/category/<category>/delete", methods=['GET', 'POST', 'DELETE'])
 def category_delete(category=None):
+    if 'username' not in login_session:
+        return Page(title="Unauthorized", contentmain="You are not authorized to see this page.").render()
     """ Delete a category.
 
     If the value of action is all, every item associated to the category will also be deleted.
@@ -257,7 +266,6 @@ def category_delete(category=None):
             contentmain=flask.render_template('category_delete.html', category=category)
             ).render()
     if request.method == 'POST':
-        print category
         deleted = []
         if request.form['action'] == 'all':
             for item in category.load_items():
@@ -272,6 +280,8 @@ def category_delete(category=None):
 
 @app.route("/category/<category>/term/<term>/delete", methods=['GET', 'POST', 'DELETE'])
 def term_delete(category=None, term=None):
+    if 'username' not in login_session:
+        return Page(title="Unauthorized", contentmain="You are not authorized to see this page.").render()
     """ Delete a term.  """
     category = session.query(models.Category).get(category)
     term = session.query(models.Item).get(term)
@@ -296,6 +306,8 @@ def term_delete(category=None, term=None):
 
 @app.route("/category/<category>/add/term", methods=['GET', 'POST'])
 def term_form(category=None):
+    if 'username' not in login_session:
+        return Page(title="Unauthorized", contentmain="You are not authorized to see this page.").render()
     """ Creates or process the form to create"""
     if request.method == 'POST':
         new_item = models.Item(
@@ -343,6 +355,8 @@ def term(category=None, term=None):
 
 @app.route("/category/<category>/term/<term>/edit", methods=['GET','POST'])
 def term_edit(category=None, term=None):
+    if 'username' not in login_session:
+        return Page(title="Unauthorized", contentmain="You are not authorized to see this page.").render()
     category = session.query(models.Category).get(category)
     term = session.query(models.Item).get(term)
     if request.method == 'GET':
