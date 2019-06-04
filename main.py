@@ -22,7 +22,6 @@ app = Flask(__name__, template_folder="templates", static_url_path="")
 app.secret_key = b'97wt2msdeaijknitaoc,.h pc/,teias'
 
 
-
 class Page(object):
     """ Generic page class to store values to be passed to templates"""
 
