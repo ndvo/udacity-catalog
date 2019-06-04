@@ -5,21 +5,18 @@ Main script that controls the application.
 It implements routes and build responses based on provided templates.
 
 """
-import flask
-import httplib2
 import json
-import models
 import random
-import requests
 import string
+import httplib2
+import flask
 from flask import request, jsonify, Flask, make_response
 from flask import session as login_session
 from google.auth.transport import requests as grequests
 from google.oauth2 import id_token
+from sqlalchemy import asc, desc, exc
+import models
 from models import session
-from oauth2client.client import FlowExchangeError
-from oauth2client.client import flow_from_clientsecrets
-from sqlalchemy import asc, desc
 
 app = Flask(__name__, template_folder="templates", static_url_path="")
 app.secret_key = b'97wt2msdeaijknitaoc,.h pc/,teias'
@@ -29,15 +26,14 @@ app.secret_key = b'97wt2msdeaijknitaoc,.h pc/,teias'
 class Page(object):
     """ Generic page class to store values to be passed to templates"""
 
-    login_session = login_session
-
-    def __init__(self, title="", contentmain="", model="", description="", root=True):
+    def __init__(self, title="", contentmain="", description="", root=True):
+        self.id = ""
         self.title = title
         self.aside = ""
-        self.model = model
+        self.model = ""
         self.description = description
         self.user = login_session['username'] if 'username' in login_session else None
-        print self.user
+        self.login_session = login_session
         if root:
             self.content = Page(title=title, root=False)
             self.content.main = contentmain
@@ -77,8 +73,8 @@ def homepage():
             """
             )
         categories = session.query(models.Category).order_by(asc(models.Category.name)).all()
-        for c in categories:
-            c.to_link()
+        for categ in categories:
+            categ.to_link()
         page.content.aside = "<h2>Categories</h2>"
         page.content.aside += flask.render_template(
             'list.html',
@@ -118,8 +114,8 @@ def gconnect():
         idinfo = id_token.verify_oauth2_token(token, grequests.Request(), CLIENT_ID)
         if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
             raise ValueError('Wrong issuer')
-        userid = idinfo['sub']
-    except ValueError as e:
+    except ValueError as error:
+        print error
         response = make_response(json.dumps('Invalid token'), 401)
         response.headers['Content-Type'] = 'application/json'
         return response
@@ -127,9 +123,9 @@ def gconnect():
     login_session['username'] = idinfo['name']
     login_session['picture'] = idinfo['picture']
     login_session['email'] = idinfo['email']
-    user_id = getUserID(login_session['email'])
+    user_id = get_user_id(login_session['email'])
     if not user_id:
-        user_id = createUser(login_session)
+        user_id = user_create()
     login_session['user_id'] = user_id
     response = make_response(
         json.dumps(
@@ -145,6 +141,8 @@ def gconnect():
 
 @app.route('/gdisconnect', methods=['POST'])
 def gdisconnect():
+    """ Disconnect the user.
+    Tries to revoke the token, this may have already been done by the client."""
     access_token = login_session.get('access_token')
     if access_token is None:
         response = make_response(json.dumps('Current user not connected.'), 401)
@@ -169,7 +167,7 @@ def gdisconnect():
 
 
 @app.route("/categories", methods=['GET'])
-def categories():
+def categories_list():
     """ Creates a list of the available categories. """
     if request.method == 'GET':
         page = Page(
@@ -219,7 +217,7 @@ def category_form():
 
 
 @app.route("/category/<category>", methods=['GET'])
-def category(category=None):
+def category_page(category=None):
     """ Creates the page for a single category. """
     if request.method == 'POST':
         pass
@@ -284,18 +282,18 @@ def category_delete(category=None):
     if request.method == 'POST':
         deleted = []
         if request.form['action'] == 'all':
-            for item in category.load_items():
-                deleted.append(item.name)
-                session.delete(item)
+            for i in category.load_items():
+                deleted.append(i.name)
+                session.delete(i)
         session.delete(category)
         session.commit()
         return Page(
             title="Category "+category.name+" was deleted",
             contentmain="The category was completely removed, including the following items: "+\
-            ", ".join([item for item in deleted])+".").render()
+            ", ".join([i for i in deleted])+".").render()
 
-@app.route("/category/<category>/item/<item>/delete", methods=['GET', 'POST', 'DELETE'])
-def item_delete(category=None, item=None):
+@app.route("/category/<category>/item/<item_id>/delete", methods=['GET', 'POST', 'DELETE'])
+def item_delete(category=None, item_id=None):
     """ Delete an item.  """
     if 'username' not in login_session:
         return Page(
@@ -303,7 +301,7 @@ def item_delete(category=None, item=None):
             contentmain="You are not authorized to see this page."
             ).render()
     category = session.query(models.Category).get(category)
-    item = session.query(models.Item).get(item)
+    item = session.query(models.Item).get(item_id)
     if request.method == 'GET':
         page = Page(
             title="Delete item "+item.name+" from "+category.name,
@@ -315,22 +313,20 @@ def item_delete(category=None, item=None):
     if request.method == 'POST':
         session.delete(item)
         session.commit()
-        page = Page()
-        page.content = Page()
-        page.title = page.content.title = "Term "+item.name+" was deleted"
-        page.content.main = "The item was completely removed."
-        return flask.render_template('base.html', page=page)
+        return Page(
+            title="Item "+item.name+" was deleted",
+            contentmain="The item was completely removed.").render()
 
 
 
 @app.route("/category/<category>/add/item", methods=['GET', 'POST'])
 def item_form(category=None):
+    """ Creates the form for adding new items"""
     if 'username' not in login_session:
         return Page(
             title="Unauthorized",
             contentmain="You are not authorized to see this page."
             ).render()
-    """ Creates or process the form to create"""
     if request.method == 'POST':
         new_item = models.Item(
             name=request.form['name'],
@@ -351,8 +347,8 @@ def item_form(category=None):
         return flask.render_template('base.html', page=page)
 
 
-@app.route("/category/<category>/item/<item>", methods=['GET', 'PUT', 'DELETE'])
-def item(category=None, item=None):
+@app.route("/category/<category>/item/<item_id>", methods=['GET', 'PUT', 'DELETE'])
+def item_page(category=None, item_id=None):
     """ Creates a page for a single item of a category. """
     if request.method == 'POST':
         pass
@@ -360,7 +356,7 @@ def item(category=None, item=None):
         category = session.query(models.Category).get(category)
         category.to_link()
         category.link = flask.render_template('link.html', link=category)
-        item = session.query(models.Item).get(item)
+        item = session.query(models.Item).get(item_id)
         page = Page(
             title=category.name+": "+item.name,
             description="This page describes "+item.name+" from the category "+category.name,
@@ -377,6 +373,7 @@ def item(category=None, item=None):
 
 @app.route("/category/<category>/item/<item>/edit", methods=['GET', 'POST'])
 def item_edit(category=None, item=None):
+    """ Create and process the form for editing an item"""
     if 'username' not in login_session:
         return Page(
             title="Unauthorized",
@@ -435,8 +432,8 @@ def logo():
     """ Serve the logo file. """
     return flask.send_from_directory("", 'logo.png')
 
-
-def createUser(login_session):
+def user_create():
+    """ Create a new user in the database from the login_session """
     new_user = models.User(
         name=login_session['username'],
         email=login_session['email'],
@@ -447,22 +444,17 @@ def createUser(login_session):
     user = session.query(models.User).filter_by(email=login_session['email']).one()
     return user.id
 
-def getUserInfo(user_id):
-    user = session.query(models.User).filter_by(id=user_id).one()
-    return user
+def user_get_info(user_id):
+    """ Fetch a user from the database """
+    return session.query(models.User).filter_by(id=user_id).one()
 
-def getUserID(email):
+def get_user_id(email):
+    """ Fetch a user id from a given email """
     try:
         user = session.query(models.User).filter_by(email=email).one()
         return user.id
-    except:
+    except exc.SQLAlchemyError:
         return None
-
-
-clientID = '1018963645552-u7guasss4dhb2017u5n7v1o64ag6vl10.apps.googleusercontent.com'
-
-
-
 
 if __name__ == '__main__':
     app.debug = True

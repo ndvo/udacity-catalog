@@ -1,5 +1,5 @@
 <p class="warning">Are you sure you want to delete category {{category.name}}?</p>
-<p>All associated terms will become orphans unless you delete them as well.</p>
+<p>All associated items will become orphans unless you delete them as well.</p>
 <form action="/category/{{category.id}}/delete" method="POST">
   <button name="action" type="submit" value="delete_make_orphans">Delete only the category</button>
   <button name="action" type="submit" value="all">Delete everything</button>

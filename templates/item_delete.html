@@ -1,5 +1,5 @@
-<p class="warning">Are you sure you want to delete the term {{item.name}} from {{category.name}}?</p>
+<p class="warning">Are you sure you want to delete the item {{item.name}} from {{category.name}}?</p>
 <p>It will not be possible to revert this action</p>
-<form action="/category/{{category.id}}}/term/{{item.id}}/delete" method="POST">
-  <button name="action" type="submit" value="all">Delete the term</button>
+<form action="/category/{{category.id}}/item/{{item.id}}/delete" method="POST">
+  <button name="action" type="submit" value="all">Delete the item</button>
 </form> 
