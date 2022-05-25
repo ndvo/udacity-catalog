@@ -78,7 +78,7 @@ PyGithub==1.21.0
 Pygments==2.2.0
 pygobject==3.22.0
 pygpgme==0.3
-PyJWT==1.7.1
+PyJWT==2.4.0
 pykwalify==1.7.0
 pylint==1.6.5
 pyOpenSSL==18.0.0
